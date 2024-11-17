@@ -6,7 +6,6 @@ import {
   MediaTypeOptions,
   requestCameraPermissionsAsync,
 } from "expo-image-picker";
-import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Clipboard,
