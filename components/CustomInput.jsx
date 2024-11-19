@@ -44,6 +44,9 @@ const CustomInput = ({
           secureTextEntry={title === "Password" && !showPassword}
           className="h-full flex-1 mt-2 text-white font-psemibold"
           readOnly={loading}
+          multiline={true}
+          editable={true}
+          scrollEnabled={true} // Allow scrolling for long text
         />
         <CustomIcon
           onPress={onPressRightIcon}

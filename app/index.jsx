@@ -8,9 +8,10 @@ import {
 } from "expo-image-picker";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Clipboard,
+  // Clipboard,
   FlatList,
   I18nManager,
+  Image,
   RefreshControl,
   Text,
   TouchableOpacity,
@@ -23,6 +24,7 @@ import CustomInput from "../components/CustomInput";
 import LoadingChat from "../components/LoadingChat";
 import TextChat from "../components/TextChat";
 import Tostify from "../components/Tostify";
+import * as Clipboard from "expo-clipboard";
 
 const Main = () => {
   const [hide, setHide] = useState({
@@ -101,16 +103,23 @@ const Main = () => {
     }
   };
 
-  // Handle form submission
   const fileToGenerativePart = async (path, mimeType) => {
-    const base64Data = await FileSystem.readAsStringAsync(path, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    console.log("uploaded");
+    let base64Data;
+    if (files.fileName === "From Web") {
+      base64Data = path.startsWith("data:") ? path.split(",")[1] : path;
+    } else {
+      base64Data = await FileSystem.readAsStringAsync(path, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    }
+
+    const sanitizedBase64 = base64Data.replace(/\s+/g, "");
+    console.log("Uploaded");
     setHide({ ...hide, type: "success", hide: true, text: "Uploading..." });
+
     return {
       inlineData: {
-        data: base64Data,
+        data: sanitizedBase64,
         mimeType,
       },
     };
@@ -121,8 +130,8 @@ const Main = () => {
     const imagePath = files?.uri;
     const mimeType = files?.mimeType;
     let imagePart;
-
     setLoading(true);
+
     if (text) {
       setMessages((prevMessages) => [
         ...prevMessages,
@@ -156,27 +165,22 @@ const Main = () => {
           imagePart = await fileToGenerativePart(imagePath, mimeType);
         }
 
-        const chat = model.startChat({
-          history: messages,
-        });
+        const chat = model.startChat({ history: messages });
 
         let result = await chat.sendMessage(
           files
             ? [
-                `read this file and choose the correct answer and return the correct answer only and choose one answer: ${text}`,
+                `read this file and choose the correct answer and return the correct answer only: \n ${text}`,
                 imagePart,
               ]
             : prompt,
           generationConfig
         );
+
         setMessages((prevMessages) => [
           ...prevMessages,
           { role: "model", parts: [{ text: result.response.text() }] },
         ]);
-
-        // console.log(result.response.text());
-        // console.log(result.response.candidates[0].content);
-        // console.log(messages);
       } catch (err) {
         console.log(err);
         setMessages((prevMessages) => [
@@ -202,7 +206,7 @@ const Main = () => {
           role: "model",
           parts: [
             {
-              text: "Fuck you, how can help you with nothing 😪 \n 😪 تبا لك, كيف سأساعدك بلا شئ",
+              text: "How can I help you without any input? 🤔",
             },
           ],
         },
@@ -217,11 +221,29 @@ const Main = () => {
   };
 
   const fetchCopiedText = async () => {
-    Clipboard.getString().then((text) => {
+    Clipboard.getStringAsync().then((text) => {
       setText(text);
       handleSubmit(text);
       setHide({ ...hide, type: "success", hide: true, text: "Past & Send" });
     });
+  };
+
+  const pasteImage = async () => {
+    const clipboardContent = await Clipboard.getImageAsync({ format: "jpeg" });
+    const dataUri = clipboardContent?.data;
+    if (clipboardContent) {
+      const base64Data = dataUri.split(",")[1];
+      setFiles({
+        uri: base64Data,
+        mimeType: "image/jpeg",
+        fileName: "From Web",
+      });
+    } else {
+      Clipboard.getStringAsync().then((text) => {
+        setText((prev) => (prev ? prev + "\n \n" + text : text));
+        setHide({ ...hide, type: "success", hide: true, text: "Past & Send" });
+      });
+    }
   };
 
   useEffect(() => {
@@ -325,6 +347,21 @@ const Main = () => {
           disabled={loading}
         >
           <Text className="text-white font-pmedium">Past & Send</Text>
+        </TouchableOpacity>
+        {/* Past */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={pasteImage}
+          className={`absolute ${files ? "bottom-48" : "bottom-36"} right-2 ${
+            loading && "opacity-50"
+          } ${
+            I18nManager.isRTL
+              ? "rounded-tr-lg rounded-br-lg"
+              : "rounded-tl-lg rounded-bl-lg"
+          } px-3 py-1 bg-secondary/50 shadow-xl shadow-orange-700`}
+          disabled={loading}
+        >
+          <Text className="text-white font-pmedium">Past</Text>
         </TouchableOpacity>
       </View>
       {hide.hide && (
